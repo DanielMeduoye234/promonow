@@ -3,19 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { db, api, Listing, Profile, Transaction, PromotionRequest } from '@/lib/supabase';
-import { 
-  ShieldAlert, 
-  Check, 
-  X, 
-  Trash2, 
-  DollarSign, 
-  FileCheck, 
-  Briefcase, 
-  Users, 
-  TrendingUp, 
+import { db, api, Listing, Profile, Transaction, PromotionRequest, GrowthRequest } from '@/lib/supabase';
+import {
+  ShieldAlert,
+  Check,
+  X,
+  Trash2,
+  DollarSign,
+  FileCheck,
+  Briefcase,
+  Users,
+  TrendingUp,
   RefreshCcw,
-  PlusCircle
+  PlusCircle,
+  Rocket
 } from 'lucide-react';
 
 export default function AdminConsole() {
@@ -24,6 +25,7 @@ export default function AdminConsole() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [promoRequests, setPromoRequests] = useState<PromotionRequest[]>([]);
+  const [growthRequests, setGrowthRequests] = useState<GrowthRequest[]>([]);
   
   // Loading & Action feedback state
   const [actionLoading, setActionLoading] = useState(false);
@@ -55,6 +57,8 @@ export default function AdminConsole() {
       setProfiles(profs);
       const promos = await api.getPromotionRequests();
       setPromoRequests(promos);
+      const growth = await api.getGrowthRequests();
+      setGrowthRequests(growth);
     } catch (e) {
       console.error("Error loading admin data:", e);
     }
@@ -110,6 +114,18 @@ export default function AdminConsole() {
     setActionLoading(true);
     try {
       await api.updatePromotionRequestStatus(id, 'active');
+      loadData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateGrowthRequest = async (id: string, status: GrowthRequest['status']) => {
+    setActionLoading(true);
+    try {
+      await api.updateGrowthRequestStatus(id, status);
       loadData();
     } catch (err) {
       console.error(err);
@@ -201,16 +217,8 @@ export default function AdminConsole() {
     }
   };
 
-  const simulateAdminLogin = () => {
-    const admin = profiles.find(p => p.is_admin);
-    if (admin) {
-      localStorage.setItem('promonow_current_user', JSON.stringify(admin));
-      setCurrentUser(admin);
-      window.location.reload();
-    }
-  };
-
-  // If user is not admin, show Simulator Screen
+  // If user is not admin, block access — admin access is granted only
+  // by signing in with an administrator account.
   if (!currentUser?.is_admin) {
     return (
       <>
@@ -220,7 +228,7 @@ export default function AdminConsole() {
             <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-600 mx-auto border border-red-100 animate-pulse">
               <ShieldAlert className="w-8 h-8" />
             </div>
-            
+
             <div className="space-y-2">
               <h2 className="font-space font-black text-xl text-[#191c1e]">Admin Privileges Required</h2>
               <p className="text-xs text-[#494456] leading-relaxed">
@@ -228,17 +236,12 @@ export default function AdminConsole() {
               </p>
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-left text-xs text-blue-800 space-y-2 font-medium">
-              <p className="font-bold">Simulate Admin Access:</p>
-              <p className="opacity-90">Click the button below to switch to the admin simulator profile and unlock all control widgets.</p>
-            </div>
-
-            <button 
-              onClick={simulateAdminLogin}
-              className="w-full py-3 bg-[#4800b2] text-white font-space font-bold text-xs tracking-wider rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+            <a
+              href="/login"
+              className="inline-block w-full py-3 bg-[#4800b2] text-white font-space font-bold text-xs tracking-wider rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
             >
-              Simulate Login as Administrator
-            </button>
+              Sign In with an Admin Account
+            </a>
           </div>
         </main>
         <Footer />
@@ -714,6 +717,86 @@ export default function AdminConsole() {
                             className="bg-emerald-50 hover:bg-emerald-100 text-[#006f64] px-3 py-1.5 rounded-lg font-space font-bold text-[10px] cursor-pointer"
                           >
                             Approve & Promote
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Follower Growth Campaign Queue */}
+        <section className="bg-white border border-[#cbc3d9]/40 rounded-2xl overflow-hidden shadow-xs">
+          <div className="p-6 border-b border-[#cbc3d9]/20 bg-[#f7f9fc] flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-space font-black text-base text-[#191c1e] flex items-center gap-2">
+                <Rocket className="w-4 h-4 text-[#4800b2]" /> Follower Growth Campaigns
+              </h2>
+              <p className="text-xs text-[#7a7488] mt-0.5">
+                Users paying to grow their own pages. Approve a request, run the promotion, then mark it completed.
+              </p>
+            </div>
+            {growthRequests.some(g => g.status === 'pending') && (
+              <span className="shrink-0 bg-amber-50 text-amber-800 border border-amber-100 px-3 py-1 rounded-full text-[10px] font-space font-bold uppercase">
+                {growthRequests.filter(g => g.status === 'pending').length} awaiting approval
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[#cbc3d9]/20 text-[10px] uppercase tracking-wider text-[#7a7488] font-space font-bold bg-[#f7f9fc]/50">
+                  <th className="py-3 px-6">Page Handle</th>
+                  <th className="py-3 px-6">Platform</th>
+                  <th className="py-3 px-6">Requested By</th>
+                  <th className="py-3 px-6">Followers Wanted</th>
+                  <th className="py-3 px-6">Price</th>
+                  <th className="py-3 px-6">Status</th>
+                  <th className="py-3 px-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#cbc3d9]/10 text-xs font-medium">
+                {growthRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-[#7a7488]">No growth campaigns requested yet.</td>
+                  </tr>
+                ) : (
+                  growthRequests.map(g => (
+                    <tr key={g.id} className="hover:bg-[#f7f9fc]/30">
+                      <td className="py-4 px-6 font-bold text-[#191c1e]">{g.handle}</td>
+                      <td className="py-4 px-6 capitalize">{g.platform}</td>
+                      <td className="py-4 px-6 text-[#7a7488]">{g.requester_username || '—'}</td>
+                      <td className="py-4 px-6 font-space font-bold">+{g.target_followers.toLocaleString()}</td>
+                      <td className="py-4 px-6 font-space font-bold text-[#4800b2]">₦{g.price.toLocaleString()}</td>
+                      <td className="py-4 px-6">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                          g.status === 'completed' ? 'bg-emerald-50 text-[#006f64]' :
+                          g.status === 'approved' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-amber-50 text-amber-800'
+                        }`}>
+                          {g.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right space-x-2">
+                        {g.status === 'pending' && (
+                          <button
+                            onClick={() => handleUpdateGrowthRequest(g.id, 'approved')}
+                            disabled={actionLoading}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-[#006f64] px-3 py-1.5 rounded-lg font-space font-bold text-[10px] cursor-pointer"
+                          >
+                            Approve
+                          </button>
+                        )}
+                        {g.status === 'approved' && (
+                          <button
+                            onClick={() => handleUpdateGrowthRequest(g.id, 'completed')}
+                            disabled={actionLoading}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-space font-bold text-[10px] cursor-pointer"
+                          >
+                            Mark Completed
                           </button>
                         )}
                       </td>

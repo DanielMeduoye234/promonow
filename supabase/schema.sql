@@ -227,3 +227,35 @@ values
    'aaaaaaa1-0000-4000-8000-000000000002',
    'Elite Broker Placement', 75000, 'pending', now() - interval '1 day')
 on conflict (id) do nothing;
+
+-- ------------------------------------------------------------
+-- 6. FOLLOWER GROWTH REQUESTS
+-- Users ask PromoNow to grow one of their own social pages by a
+-- target follower count. Price is computed server-side at
+-- NGN 10 per follower with a NGN 10,000 minimum. Admins approve
+-- the request, then handle the promotion and mark it completed.
+-- (Appended section — safe to re-run like the rest of this file.)
+-- ------------------------------------------------------------
+create table if not exists public.growth_requests (
+  id                 uuid primary key default gen_random_uuid(),
+  platform           text not null
+                       check (platform in ('instagram','tiktok','facebook','youtube','twitter')),
+  handle             text not null,
+  target_followers   integer not null check (target_followers > 0),
+  price              numeric(12,2) not null check (price >= 10000),
+  requester_username text not null default '',
+  status             text not null default 'pending'
+                       check (status in ('pending','approved','completed')),
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists idx_growth_requests_status  on public.growth_requests (status);
+create index if not exists idx_growth_requests_created on public.growth_requests (created_at desc);
+
+alter table public.growth_requests enable row level security;
+
+drop policy if exists "Public read growth requests" on public.growth_requests;
+create policy "Public read growth requests"
+  on public.growth_requests for select
+  to anon, authenticated
+  using (true);

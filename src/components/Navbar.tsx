@@ -10,50 +10,48 @@ import {
   Shield,
   LogOut,
   LogIn,
-  RotateCcw,
-  Sparkles,
   Menu,
   X,
   Bell
 } from 'lucide-react';
-import { db, api, Profile } from '@/lib/supabase';
+import { api, Profile } from '@/lib/supabase';
 
 export default function Navbar() {
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
-  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingAudits, setPendingAudits] = useState(0);
 
   useEffect(() => {
-    // Load profiles and set default active user
-    api.getProfiles().then(profiles => {
-      setAllProfiles(profiles);
-      
-      // Check if there is an active user stored
-      const savedUser = localStorage.getItem('promonow_current_user');
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
-      } else {
-        // Default to a regular buyer/seller profile
-        const defaultUser = profiles.find(p => p.username === 'EliteBroker_Assets') || profiles[0];
-        setCurrentUser(defaultUser);
-        localStorage.setItem('promonow_current_user', JSON.stringify(defaultUser));
-      }
-    });
+    // Only restore the session the user actually signed in with —
+    // never auto-assign someone else's profile.
+    const savedUser = localStorage.getItem('promonow_current_user');
+    if (savedUser) {
+      setCurrentUser(JSON.parse(savedUser));
+    }
   }, []);
 
-  // Admin notification: count member listings awaiting audit.
+  // Admin notification: count member listings awaiting audit plus
+  // follower growth campaigns awaiting approval.
   // The bell badge only renders for admins, so no reset is needed otherwise.
   useEffect(() => {
     if (!currentUser?.is_admin) return;
 
-    const refreshPending = () => {
-      api.getListings().then(listings => {
-        setPendingAudits(listings.filter(l => l.verification_status === 'pending').length);
-      }).catch(() => setPendingAudits(0));
+    const refreshPending = async () => {
+      try {
+        const [listings, growth] = await Promise.all([
+          api.getListings(),
+          api.getGrowthRequests()
+        ]);
+        setPendingAudits(
+          listings.filter(l => l.verification_status === 'pending').length +
+          growth.filter(g => g.status === 'pending').length
+        );
+      } catch {
+        setPendingAudits(0);
+      }
     };
 
     refreshPending();
@@ -61,12 +59,11 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, [currentUser?.is_admin]);
 
-  const switchUser = (profile: Profile) => {
-    setCurrentUser(profile);
-    localStorage.setItem('promonow_current_user', JSON.stringify(profile));
+  const handleSignOut = () => {
+    localStorage.removeItem('promonow_current_user');
+    setCurrentUser(null);
     setShowUserMenu(false);
-    // Reload page to reflect user changes
-    window.location.reload();
+    window.location.href = '/login';
   };
 
   const getPlatformIcon = (platform: string) => {
@@ -126,6 +123,14 @@ export default function Navbar() {
               Followers &amp; Likes
             </Link>
             <Link
+              href="/promote"
+              className={`font-space font-bold text-sm tracking-wide transition-colors ${
+                pathname === '/promote' ? 'text-[#4800b2] border-b-2 border-[#4800b2] pb-1' : 'text-[#494456] hover:text-[#4800b2]'
+              }`}
+            >
+              Promote
+            </Link>
+            <Link
               href="/pricing"
               className={`font-space font-bold text-sm tracking-wide transition-colors ${
                 pathname === '/pricing' ? 'text-[#4800b2] border-b-2 border-[#4800b2] pb-1' : 'text-[#494456] hover:text-[#4800b2]'
@@ -164,7 +169,7 @@ export default function Navbar() {
             <Link
               href="/admin"
               className="relative p-2 text-[#494456] hover:text-[#4800b2] transition-colors"
-              title={pendingAudits > 0 ? `${pendingAudits} listing(s) awaiting audit` : 'No pending audits'}
+              title={pendingAudits > 0 ? `${pendingAudits} item(s) awaiting review (listings + growth campaigns)` : 'No pending reviews'}
             >
               <Bell className="w-5 h-5" />
               {pendingAudits > 0 && (
@@ -175,80 +180,60 @@ export default function Navbar() {
             </Link>
           )}
 
-          <div className="relative">
-            {/* Persona Switcher / User Profile Indicator */}
-            <button 
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 bg-[#f7f9fc] hover:bg-[#eceef1] border border-[#cbc3d9]/40 py-1.5 px-3 rounded-full cursor-pointer transition-colors"
-            >
-              <div className={`w-2 h-2 rounded-full ${currentUser?.is_admin ? 'bg-red-500' : 'bg-emerald-500'}`} />
-              <span className="font-space font-bold text-xs text-[#191c1e]">
-                {currentUser?.username}
-              </span>
-              <User className="w-4 h-4 text-[#494456]" />
-            </button>
+          {currentUser ? (
+            <div className="relative">
+              {/* Signed-in user menu */}
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 bg-[#f7f9fc] hover:bg-[#eceef1] border border-[#cbc3d9]/40 py-1.5 px-3 rounded-full cursor-pointer transition-colors"
+              >
+                <div className={`w-2 h-2 rounded-full ${currentUser.is_admin ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                <span className="font-space font-bold text-xs text-[#191c1e]">
+                  {currentUser.username}
+                </span>
+                <User className="w-4 h-4 text-[#494456]" />
+              </button>
 
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-[#cbc3d9]/40 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-2 border-b border-[#cbc3d9]/20">
-                  <p className="text-[10px] uppercase font-bold text-[#7a7488] tracking-widest">Active Identity</p>
-                  <p className="font-space font-bold text-sm text-[#191c1e] mt-1">{currentUser?.username}</p>
-                  <span className={`inline-block text-[9px] px-2 py-0.5 rounded-full mt-1 font-bold ${
-                    currentUser?.is_admin ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {currentUser?.is_admin ? 'Administrator Role' : 'Seller / Buyer Profile'}
-                  </span>
-                </div>
-                
-                <div className="p-2">
-                  <p className="text-[10px] uppercase font-bold text-[#7a7488] tracking-widest px-2 py-1">Quick Role Simulation</p>
-                  {allProfiles.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => switchUser(p)}
-                      className={`w-full text-left font-space text-xs py-2 px-3 rounded-lg flex items-center justify-between cursor-pointer ${
-                        currentUser?.id === p.id ? 'bg-[#4800b2]/5 text-[#4800b2] font-bold' : 'hover:bg-[#f7f9fc] text-[#494456]'
-                      }`}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-[#cbc3d9]/40 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-4 py-2 border-b border-[#cbc3d9]/20">
+                    <p className="text-[10px] uppercase font-bold text-[#7a7488] tracking-widest">Signed In As</p>
+                    <p className="font-space font-bold text-sm text-[#191c1e] mt-1">{currentUser.username}</p>
+                    <span className={`inline-block text-[9px] px-2 py-0.5 rounded-full mt-1 font-bold ${
+                      currentUser.is_admin ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {currentUser.is_admin ? 'Administrator Role' : 'Seller / Buyer Profile'}
+                    </span>
+                  </div>
+
+                  <div className="p-1 mt-1 space-y-1">
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full text-left font-space text-xs py-2 px-3 hover:bg-[#f7f9fc] rounded-lg flex items-center gap-2 cursor-pointer text-[#494456]"
                     >
-                      <span>{p.username}</span>
-                      <span className="text-[10px] opacity-75 font-normal">
-                        {p.is_admin ? 'Admin' : `Rep: ${p.reputation}%`}
-                      </span>
+                      <User className="w-3.5 h-3.5" />
+                      My Workspace Profile
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left font-space text-xs py-2 px-3 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Sign Out
                     </button>
-                  ))}
+                  </div>
                 </div>
-
-                <div className="border-t border-[#cbc3d9]/20 p-1 mt-1 space-y-1">
-                  <Link 
-                    href="/profile"
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full text-left font-space text-xs py-2 px-3 hover:bg-[#f7f9fc] rounded-lg flex items-center gap-2 cursor-pointer text-[#494456]"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    My Workspace Profile
-                  </Link>
-                  <Link 
-                    href="/login"
-                    onClick={() => setShowUserMenu(false)}
-                    className="w-full text-left font-space text-xs py-2 px-3 hover:bg-[#f7f9fc] rounded-lg flex items-center gap-2 cursor-pointer text-[#494456]"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    Open Login Portal
-                  </Link>
-                  <button 
-                    onClick={() => {
-                      localStorage.clear();
-                      window.location.reload();
-                    }}
-                    className="w-full text-left font-space text-xs py-2 px-3 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Reset Simulated DB
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center gap-2 bg-[#4800b2] text-white py-2 px-4 rounded-full font-space font-bold text-xs cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              <LogIn className="w-3.5 h-3.5" /> Sign In
+            </Link>
+          )}
 
           <Link href="/marketplace" className="p-2 cursor-pointer text-[#494456] hover:text-[#4800b2] relative">
             <ShoppingBag className="w-5 h-5" />
@@ -304,6 +289,15 @@ export default function Navbar() {
             }`}
           >
             Followers &amp; Likes
+          </Link>
+          <Link
+            href="/promote"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`font-space font-bold text-sm py-2 tracking-wide transition-colors ${
+              pathname === '/promote' ? 'text-[#4800b2]' : 'text-[#494456] hover:text-[#4800b2]'
+            }`}
+          >
+            Promote
           </Link>
           <Link
             href="/pricing"

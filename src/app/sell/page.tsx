@@ -50,8 +50,15 @@ export default function SellAccount() {
       return;
     }
 
+    // Listings must belong to the signed-in user — never a fallback account.
+    if (!currentUser) {
+      alert('Please sign in to list an account.');
+      window.location.href = '/login';
+      return;
+    }
+
     try {
-      const sellerId = currentUser?.id || 'usr-seller-1';
+      const sellerId = currentUser.id;
 
       const created = await api.createListing({
         platform,
@@ -67,11 +74,11 @@ export default function SellAccount() {
         og_email_included: ogEmail,
         instant_delivery: instantDelivery,
         seller_id: sellerId,
-        seller: currentUser ? {
+        seller: {
           id: currentUser.id,
           username: currentUser.username,
           is_admin: currentUser.is_admin
-        } : undefined
+        }
       });
 
       setAutoApproved(!!created.auto_approved);

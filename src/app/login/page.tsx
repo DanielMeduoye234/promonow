@@ -93,10 +93,13 @@ export default function Login() {
       const profiles = db.getProfiles();
       const loginName = signInEmail.split('@')[0].toLowerCase();
       
-      let matched = profiles.find(p => p.username.toLowerCase() === loginName);
+      const matched = profiles.find(p => p.username.toLowerCase() === loginName);
 
+      // Never fall back to someone else's profile — an unknown login fails.
       if (!matched) {
-        matched = profiles[0];
+        setErrorMsg('No account found for that email. Please sign up first.');
+        setLoading(false);
+        return;
       }
 
       localStorage.setItem('promonow_current_user', JSON.stringify(matched));

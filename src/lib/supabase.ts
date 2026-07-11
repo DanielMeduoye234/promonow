@@ -57,6 +57,28 @@ export interface PromotionRequest {
   created_at: string;
 }
 
+// A request for PromoNow to grow one of the user's own social pages
+// by a target follower count (not tied to a marketplace listing).
+export interface GrowthRequest {
+  id: string;
+  platform: 'instagram' | 'tiktok' | 'facebook' | 'youtube' | 'twitter';
+  handle: string;
+  target_followers: number;
+  price: number;
+  requester_username: string;
+  status: 'pending' | 'approved' | 'completed';
+  created_at: string;
+}
+
+// Growth promotion pricing: NGN 10 per follower, NGN 10,000 minimum.
+export const GROWTH_PRICE_PER_FOLLOWER = 10;
+export const GROWTH_MIN_PRICE = 10000;
+
+export function calculateGrowthPrice(targetFollowers: number): number {
+  if (!Number.isFinite(targetFollowers) || targetFollowers <= 0) return GROWTH_MIN_PRICE;
+  return Math.max(GROWTH_MIN_PRICE, Math.round(targetFollowers * GROWTH_PRICE_PER_FOLLOWER));
+}
+
 // Initial mock listings matching Stitch mockup designs
 const INITIAL_LISTINGS: Listing[] = [
   {
@@ -282,6 +304,14 @@ class LocalDatabase {
 
   savePromotionRequests(requests: PromotionRequest[]): void {
     this.setStorageItem('promonow_promo_requests', requests);
+  }
+
+  getGrowthRequests(): GrowthRequest[] {
+    return this.getStorageItem<GrowthRequest[]>('promonow_growth_requests', []);
+  }
+
+  saveGrowthRequests(requests: GrowthRequest[]): void {
+    this.setStorageItem('promonow_growth_requests', requests);
   }
 }
 
@@ -548,5 +578,62 @@ export const api = {
       return requests[idx];
     }
     throw new Error('Promotion request not found');
+  },
+  getGrowthRequests: async () => {
+    try {
+      return await fetchApi<GrowthRequest[]>('/api/growth');
+    } catch (err) {
+      console.warn("API unavailable, fallback to memory database:", err);
+    }
+    return db.getGrowthRequests();
+  },
+  createGrowthRequest: async (input: {
+    platform: GrowthRequest['platform'];
+    handle: string;
+    target_followers: number;
+    requester_username: string;
+  }) => {
+    try {
+      return await fetchApi<GrowthRequest>('/api/growth', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      });
+    } catch (err) {
+      console.warn("API unavailable, fallback to memory database:", err);
+    }
+
+    const requests = db.getGrowthRequests();
+    const newReq: GrowthRequest = {
+      id: 'grw-' + Math.random().toString(36).substr(2, 9),
+      platform: input.platform,
+      handle: input.handle,
+      target_followers: input.target_followers,
+      price: calculateGrowthPrice(input.target_followers),
+      requester_username: input.requester_username,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+    requests.unshift(newReq);
+    db.saveGrowthRequests(requests);
+    return newReq;
+  },
+  updateGrowthRequestStatus: async (id: string, status: GrowthRequest['status']) => {
+    try {
+      return await fetchApi<GrowthRequest>(`/api/growth/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+    } catch (err) {
+      console.warn("API unavailable, fallback to memory database:", err);
+    }
+
+    const requests = db.getGrowthRequests();
+    const idx = requests.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      requests[idx].status = status;
+      db.saveGrowthRequests(requests);
+      return requests[idx];
+    }
+    throw new Error('Growth request not found');
   }
 };

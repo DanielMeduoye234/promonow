@@ -182,6 +182,22 @@ export default function Stats() {
           )}
         </section>
 
+        {/* Growth promotion CTA */}
+        <section className="bg-[#4800b2] rounded-3xl p-8 md:p-12 text-center space-y-4 shadow-sm">
+          <h2 className="font-space font-black text-2xl md:text-3xl text-white">
+            Want numbers like these on your own page?
+          </h2>
+          <p className="text-sm text-white/80 max-w-md mx-auto leading-relaxed">
+            Tell us your platform and the follower count you want to hit — campaigns start from just ₦10,000.
+          </p>
+          <Link
+            href="/promote"
+            className="inline-flex items-center gap-2 bg-white text-[#4800b2] px-6 py-3 rounded-xl font-space font-bold text-xs tracking-wider hover:opacity-90 transition-opacity"
+          >
+            Sign Up for Promotion
+          </Link>
+        </section>
+
       </main>
 
       <Footer />
