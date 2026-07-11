@@ -33,7 +33,7 @@ export default function Footer() {
         <div>
           <h4 className="font-space font-bold text-xs uppercase tracking-wider text-[#4af8e3] mb-6">Services</h4>
           <ul className="space-y-3 text-sm text-[#cbc3d9] opacity-80">
-            <li><Link href="#" className="hover:text-[#4af8e3] transition-colors">Escrow Protection</Link></li>
+            <li><Link href="/marketplace" className="hover:text-[#4af8e3] transition-colors">Paystack Checkout</Link></li>
             <li><Link href="#" className="hover:text-[#4af8e3] transition-colors">Account Appraisals</Link></li>
             <li><Link href="#" className="hover:text-[#4af8e3] transition-colors">Audience Auditing</Link></li>
             <li><Link href="#" className="hover:text-[#4af8e3] transition-colors">Safety FAQ</Link></li>
@@ -41,14 +41,14 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="font-space font-bold text-xs uppercase tracking-wider text-[#4af8e3] mb-6">Security Escrow</h4>
+          <h4 className="font-space font-bold text-xs uppercase tracking-wider text-[#4af8e3] mb-6">Direct Payments</h4>
           <div className="bg-white/5 border border-white/10 p-4 rounded-lg">
             <p className="text-xs text-[#cbc3d9] leading-relaxed mb-3">
-              All transactions are secured by our proprietary multi-signature digital escrow system. Handovers are completed within 24h.
+              Buyers pay the displayed price directly through Paystack. Successful payments are verified before purchase delivery.
             </p>
             <div className="flex items-center gap-2 text-[#4af8e3]">
               <span className="material-symbols-outlined text-[18px]">verified_user</span>
-              <span className="font-space font-bold text-[10px] uppercase tracking-wider">ESCROW SECURED</span>
+              <span className="font-space font-bold text-[10px] uppercase tracking-wider">SECURED BY PAYSTACK</span>
             </div>
           </div>
         </div>

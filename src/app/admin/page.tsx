@@ -299,7 +299,7 @@ export default function AdminConsole() {
         <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#cbc3d9]/20 pb-6">
           <div>
             <h1 className="font-space font-black text-3xl md:text-5xl text-[#191c1e]">Admin Console</h1>
-            <p className="text-xs text-[#7a7488] font-medium mt-1">Platform management, transaction escrows, and audits.</p>
+            <p className="text-xs text-[#7a7488] font-medium mt-1">Platform management, direct payments, and listing audits.</p>
           </div>
           <div className="flex items-center gap-3">
             <button 
@@ -470,7 +470,7 @@ export default function AdminConsole() {
                     onChange={(e) => setNewDelivery(e.target.checked)}
                     className="rounded text-[#4800b2] focus:ring-[#4800b2]" 
                   />
-                  <span className="font-space text-xs text-[#494456] font-medium">Instant Escrow Release Ready</span>
+                  <span className="font-space text-xs text-[#494456] font-medium">Instant Delivery Ready</span>
                 </label>
               </div>
 
@@ -499,7 +499,7 @@ export default function AdminConsole() {
           <div className="bg-white border border-[#cbc3d9]/40 p-6 rounded-2xl shadow-xs">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] uppercase font-space font-bold text-[#7a7488] tracking-wider mb-1">Escrow Volume</p>
+                <p className="text-[10px] uppercase font-space font-bold text-[#7a7488] tracking-wider mb-1">Payment Volume</p>
                 <h3 className="font-space font-black text-2xl text-[#191c1e]">₦{totalVolume.toLocaleString()}</h3>
               </div>
               <div className="p-2 bg-[#006a60]/10 text-[#006a60] rounded-xl"><DollarSign className="w-5 h-5" /></div>
@@ -637,22 +637,22 @@ export default function AdminConsole() {
           </div>
         </section>
 
-        {/* Transactions / Escrow Contracts */}
+        {/* Payment transactions */}
         <section className="bg-white border border-[#cbc3d9]/40 rounded-2xl overflow-hidden shadow-xs">
           <div className="p-6 border-b border-[#cbc3d9]/20 bg-[#f7f9fc]">
-            <h2 className="font-space font-black text-base text-[#191c1e]">Escrow Control Dashboard</h2>
-            <p className="text-xs text-[#7a7488] mt-0.5">Control payment releases, security contracts, and refunds.</p>
+            <h2 className="font-space font-black text-base text-[#191c1e]">Payment Transactions</h2>
+            <p className="text-xs text-[#7a7488] mt-0.5">Review completed payments and legacy transaction records.</p>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#cbc3d9]/20 text-[10px] uppercase tracking-wider text-[#7a7488] font-space font-bold bg-[#f7f9fc]/50">
-                  <th className="py-3 px-6">Escrow ID</th>
+                  <th className="py-3 px-6">Payment ID</th>
                   <th className="py-3 px-6">Buyer ID</th>
                   <th className="py-3 px-6">Seller ID</th>
-                  <th className="py-3 px-6">Funds Locked</th>
-                  <th className="py-3 px-6">Escrow Fee (2%)</th>
+                  <th className="py-3 px-6">Amount Paid</th>
+                  <th className="py-3 px-6">Legacy Fee</th>
                   <th className="py-3 px-6">Contract Status</th>
                   <th className="py-3 px-6 text-right">Actions</th>
                 </tr>
@@ -660,7 +660,7 @@ export default function AdminConsole() {
               <tbody className="divide-y divide-[#cbc3d9]/10 text-xs font-medium">
                 {transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-[#7a7488]">No escrow transactions active.</td>
+                    <td colSpan={7} className="py-8 text-center text-[#7a7488]">No payment transactions yet.</td>
                   </tr>
                 ) : (
                   transactions.map(t => (

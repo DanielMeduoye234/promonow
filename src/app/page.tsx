@@ -72,7 +72,7 @@ export default function Home() {
               </h1>
               
               <p className="text-base md:text-lg text-[#494456] max-w-lg leading-relaxed">
-                Securely acquire and trade high-value digital properties. PromoNow provides instant escrow protection and verified account history for professional growth.
+                Acquire and trade high-value digital properties with verified account history and direct Paystack checkout.
               </p>
               
               <div className="flex flex-wrap gap-4 pt-4">
@@ -103,7 +103,7 @@ export default function Home() {
                 </div>
                 <div>
                   <div className="font-space font-black text-2xl md:text-3xl text-[#4800b2]">{stats.security}</div>
-                  <div className="text-xs text-[#494456] font-medium mt-1">Secure Escrow</div>
+                  <div className="text-xs text-[#494456] font-medium mt-1">Paystack Payments</div>
                 </div>
               </div>
             </div>
@@ -256,9 +256,9 @@ export default function Home() {
                 <div className="w-12 h-12 bg-[#4800b2] rounded-xl flex items-center justify-center mb-6">
                   <ShieldCheck className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="font-space font-bold text-lg mb-4 text-[#cfbdff]">Secure Escrow</h3>
+                <h3 className="font-space font-bold text-lg mb-4 text-[#cfbdff]">Direct Paystack Checkout</h3>
                 <p className="text-xs text-[#cbc3d9] opacity-70 leading-relaxed">
-                  Transactions are protected by our advanced escrow system. Funds are released to the seller only after the buyer confirms full ownership and security of the asset credentials.
+                  Pay the displayed listing price through Paystack. PromoNow verifies successful payment before delivering the purchase.
                 </p>
               </div>
 

@@ -251,7 +251,7 @@ export default function UserProfile() {
           <div className="bg-white border border-[#cbc3d9]/40 rounded-2xl overflow-hidden shadow-xs">
             <div className="p-5 border-b border-[#cbc3d9]/20 bg-[#f7f9fc]">
               <h3 className="font-space font-black text-sm text-[#191c1e] flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-[#4800b2]" /> Escrow Purchases / Orders
+                <ShoppingBag className="w-4 h-4 text-[#4800b2]" /> Purchases / Orders
               </h3>
             </div>
             <div className="p-4">
@@ -263,7 +263,7 @@ export default function UserProfile() {
                     <div key={p.id} className="flex justify-between items-center border border-[#cbc3d9]/20 p-3.5 rounded-xl text-xs">
                       <div>
                         <p className="font-space font-black text-[#191c1e]">{p.id}</p>
-                        <p className="text-[10px] text-[#7a7488] mt-0.5">Locked: ₦{p.amount.toLocaleString()} • Fee: ₦{p.escrow_fee.toLocaleString()}</p>
+                        <p className="text-[10px] text-[#7a7488] mt-0.5">Paid: ₦{p.amount.toLocaleString()}</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                         p.status === 'released' ? 'bg-emerald-50 text-[#006f64]' : 
@@ -365,7 +365,7 @@ export default function UserProfile() {
                   <ul className="list-disc pl-4 space-y-1">
                     <li>Rank directly at the top of category lists.</li>
                     <li>Featured placement in sliding headers.</li>
-                    <li>Priority escrow auditing and support.</li>
+                    <li>Priority listing audits and payment support.</li>
                   </ul>
                 )}
               </div>

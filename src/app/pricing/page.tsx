@@ -18,8 +18,8 @@ export default function Pricing() {
       features: [
         'List 1 active social account',
         'Basic manual validation (up to 72h)',
-        'Standard Escrow protection',
-        '2.0% platform transaction fee',
+        'Direct Paystack checkout',
+        'No escrow transaction fee',
         'Community forum support'
       ],
       cta: 'List Account Free',
@@ -36,7 +36,7 @@ export default function Pricing() {
         'Priority verification (under 12h)',
         'Highlighted "Verified Seller" badge',
         'Premium listing placement in browse',
-        'Reduced escrow fee (1.5%)',
+        'Direct Paystack checkout',
         'Direct chat support'
       ],
       cta: 'Sign Up for Promotion',
@@ -51,10 +51,10 @@ export default function Pricing() {
       description: 'For agencies, brokers, and digital brokers managing high-volume portfolio transitions.',
       features: [
         'Everything in Verified Premium',
-        'Dedicated escrow trade officer',
+        'Dedicated trade support officer',
         'Off-market listing support',
         'Custom landing pages for assets',
-        'Lowest escrow fee (1.0%)',
+        'Direct Paystack checkout',
         'API access for bulk account syncing',
         '24/7 Phone & Zoom support'
       ],
@@ -66,16 +66,16 @@ export default function Pricing() {
 
   const faqs = [
     {
-      q: 'How does the escrow protection work?',
-      a: 'Once a buyer decides to purchase a listing, they deposit the funds into PromoNow\'s secure escrow vault. We hold the funds and notify the seller. The credentials handover process is initiated under our guidance. Once the buyer verifies and secures the account, we release the funds to the seller\'s linked bank or crypto account.'
+      q: 'How do marketplace payments work?',
+      a: 'Choose a listing, enter your receipt email, and complete the exact listed payment on Paystack. PromoNow verifies the payment before completing the purchase.'
     },
     {
-      q: 'Why do you charge an escrow transaction fee?',
-      a: 'The transaction fee covers our manual auditing, credential validation, contract writing, and payout processing costs. It ensures that both buyers and sellers are fully protected against fraud and chargeback scams.'
+      q: 'Is there an extra payment fee?',
+      a: 'PromoNow does not add an escrow fee. The checkout total shown on the listing is the amount sent to Paystack.'
     },
     {
       q: 'What happens if a buyer doesn\'t receive the account?',
-      a: 'If a seller fails to provide valid credentials or attempts a fraudulent recovery, the transaction is immediately cancelled by our admin desk, and the locked escrow funds are refunded to the buyer\'s original payment method.'
+      a: 'Contact PromoNow support with your Paystack reference so the purchase and delivery record can be reviewed.'
     },
     {
       q: 'Can I cancel my subscription at any time?',
@@ -182,7 +182,7 @@ export default function Pricing() {
         <section className="max-w-2xl mx-auto px-4 pt-32 space-y-12">
           <div className="text-center space-y-3">
             <h2 className="font-space font-black text-2xl md:text-3xl text-[#191c1e]">Frequently Asked Questions</h2>
-            <p className="text-xs text-[#7a7488]">Everything you need to know about our listing audits and escrow safety.</p>
+            <p className="text-xs text-[#7a7488]">Everything you need to know about listing audits and direct Paystack payments.</p>
           </div>
 
           <div className="space-y-6">

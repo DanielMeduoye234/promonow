@@ -675,11 +675,16 @@ export const api = {
       `/api/wallet/verify?reference=${encodeURIComponent(reference)}`
     ),
 
-  purchaseFromWallet: (userId: string, listingId: string) =>
-    fetchApi<{ credentials: string; price: number; new_balance: number }>('/api/purchase', {
+  startListingPayment: (userId: string, listingId: string, email: string, callbackUrl: string) =>
+    fetchApi<{ authorization_url: string; reference: string }>('/api/purchase/initialize', {
       method: 'POST',
-      body: JSON.stringify({ user_id: userId, listing_id: listingId })
+      body: JSON.stringify({ user_id: userId, listing_id: listingId, email, callback_url: callbackUrl })
     }),
+
+  verifyListingPayment: (reference: string) =>
+    fetchApi<{ status: string; credentials?: string }>(
+      `/api/purchase/verify?reference=${encodeURIComponent(reference)}`
+    ),
 
   getDeliverables: (userId: string) =>
     fetchApi<Deliverable[]>(`/api/deliverables?user_id=${encodeURIComponent(userId)}`),

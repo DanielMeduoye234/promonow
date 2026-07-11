@@ -313,6 +313,78 @@ create table if not exists public.listing_stock (
 
 create index if not exists idx_listing_stock_avail on public.listing_stock (listing_id, status);
 
+-- Direct Paystack payments for marketplace purchases. No wallet or escrow is
+-- involved: Paystack verifies the exact listing price before fulfilment.
+create table if not exists public.marketplace_payments (
+  id          uuid primary key default gen_random_uuid(),
+  reference   text not null unique,
+  listing_id  uuid not null references public.listings(id) on delete restrict,
+  buyer_id    uuid not null references public.profiles(id) on delete restrict,
+  amount      numeric(14,2) not null check (amount >= 0),
+  email       text not null,
+  stock_id    uuid references public.listing_stock(id) on delete set null,
+  status      text not null default 'pending' check (status in ('pending','success','failed')),
+  completed_at timestamptz,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.marketplace_payments
+  add column if not exists stock_id uuid references public.listing_stock(id) on delete set null;
+
+create index if not exists idx_marketplace_payments_buyer on public.marketplace_payments (buyer_id);
+alter table public.marketplace_payments enable row level security;
+
+create or replace function public.complete_marketplace_payment(p_reference text)
+returns table (credentials text)
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_payment marketplace_payments%rowtype;
+  v_listing listings%rowtype;
+  v_stock listing_stock%rowtype;
+  v_credentials text := '';
+  v_remaining integer;
+begin
+  select * into v_payment from marketplace_payments where reference = p_reference for update;
+  if not found then raise exception 'PAYMENT_NOT_FOUND'; end if;
+
+  if v_payment.status = 'success' then
+    select s.credentials into v_credentials from listing_stock s where s.id = v_payment.stock_id;
+    return query select coalesce(v_credentials, '');
+    return;
+  end if;
+
+  select * into v_listing from listings where id = v_payment.listing_id for update;
+  if not found or v_listing.status <> 'active' then raise exception 'LISTING_UNAVAILABLE'; end if;
+  if v_payment.amount <> v_listing.price then raise exception 'PRICE_MISMATCH'; end if;
+
+  select * into v_stock from listing_stock
+    where listing_id = v_listing.id and status = 'available'
+    order by created_at limit 1 for update skip locked;
+
+  if found then
+    update listing_stock set status = 'sold', buyer_id = v_payment.buyer_id, sold_at = now()
+      where id = v_stock.id;
+    v_credentials := v_stock.credentials;
+    select count(*) into v_remaining from listing_stock
+      where listing_id = v_listing.id and status = 'available';
+    if v_remaining = 0 then update listings set status = 'sold' where id = v_listing.id; end if;
+  elsif v_listing.instant_delivery then
+    raise exception 'OUT_OF_STOCK';
+  else
+    update listings set status = 'sold' where id = v_listing.id;
+  end if;
+
+  insert into transactions (listing_id, buyer_id, seller_id, amount, escrow_fee, status)
+    values (v_listing.id, v_payment.buyer_id, v_listing.seller_id, v_listing.price, 0, 'released');
+  update marketplace_payments
+    set status = 'success', stock_id = v_stock.id, completed_at = now()
+    where id = v_payment.id;
+  return query select v_credentials;
+end;
+$$;
+
 -- Lock down: RLS on, no policies => no direct client access at all.
 alter table public.wallets              enable row level security;
 alter table public.wallet_transactions  enable row level security;

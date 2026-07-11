@@ -48,10 +48,10 @@ export default function Services() {
       benefit: 'Buy authentic accounts with real, responsive audiences.'
     },
     {
-      title: 'Digital Escrow Vault',
+      title: 'Direct Paystack Payments',
       icon: <ShieldCheck className="w-6 h-6 text-[#006a60]" />,
-      description: 'Funds are securely locked in escrow. Credentials undergo step-by-step verification before the deposit is released to the seller.',
-      benefit: '100% protection against payment chargebacks and credentials recovery fraud.'
+      description: 'Buyers pay the displayed listing price through Paystack without funding a wallet or paying an escrow fee.',
+      benefit: 'Server-side payment verification before a purchase is completed.'
     },
     {
       title: 'Account Valuation (Appraisal)',

@@ -347,8 +347,8 @@ export default function SellAccount() {
                   <div className="flex gap-4">
                     <div className="w-7 h-7 rounded-full bg-[#006a60]/10 text-[#006a60] flex items-center justify-center font-space font-bold text-xs shrink-0">2</div>
                     <div>
-                      <h4 className="font-space font-bold text-xs text-[#191c1e] mb-1">Escrow Protection</h4>
-                      <p className="text-[11px] text-[#7a7488] leading-normal">Once a buyer locks a listing, funds are deposited into our escrow contract. Credentials are then securely verified and handed over.</p>
+                      <h4 className="font-space font-bold text-xs text-[#191c1e] mb-1">Direct Payment</h4>
+                      <p className="text-[11px] text-[#7a7488] leading-normal">The buyer pays the listed price through Paystack. Once payment is verified, the purchase and credential handover are completed.</p>
                     </div>
                   </div>
                 </div>

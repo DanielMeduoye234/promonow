@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return new Response('ok', { status: 200 });
   }
 
-  let event: { event?: string; data?: { reference?: string } };
+  let event: { event?: string; data?: { reference?: string; amount?: number; currency?: string } };
   try {
     event = JSON.parse(rawBody);
   } catch {
@@ -24,9 +24,21 @@ export async function POST(request: Request) {
   }
 
   if (event.event === 'charge.success' && event.data?.reference) {
-    // Idempotent: no-op if the verify endpoint already credited this reference,
-    // or if the reference is not one of our wallet top-ups.
-    await supabaseAdmin.rpc('credit_wallet_topup', { p_reference: event.data.reference });
+    if (event.data.reference.startsWith('buy_')) {
+      const { data: expected } = await supabaseAdmin
+        .from('marketplace_payments')
+        .select('amount')
+        .eq('reference', event.data.reference)
+        .maybeSingle();
+      const exactAmount = expected && event.data.currency === 'NGN'
+        && event.data.amount === Math.round(Number(expected.amount) * 100);
+      if (exactAmount) {
+        await supabaseAdmin.rpc('complete_marketplace_payment', { p_reference: event.data.reference });
+      }
+    } else {
+      // Idempotent: no-op if the verify endpoint already credited this top-up.
+      await supabaseAdmin.rpc('credit_wallet_topup', { p_reference: event.data.reference });
+    }
   }
 
   // Always 200 so Paystack does not retry indefinitely.

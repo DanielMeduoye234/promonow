@@ -14,7 +14,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PromoNow | Secure Digital Asset Exchange",
-  description: "Securely acquire and trade high-value digital properties. PromoNow provides instant escrow protection and verified account history.",
+  description: "Acquire and trade verified digital properties with direct Paystack checkout and clear listing prices.",
 };
 
 export default function RootLayout({

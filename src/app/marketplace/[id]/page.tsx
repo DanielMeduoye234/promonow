@@ -4,14 +4,12 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { api, Listing, Profile } from '@/lib/supabase';
+import { api, Listing, Profile, supabase } from '@/lib/supabase';
 import {
   CheckCircle2,
   ChevronRight,
   Download,
-  ShieldCheck,
   User,
-  MessageSquare,
   Loader2,
   TrendingUp,
   Zap,
@@ -26,13 +24,13 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
   const [seller, setSeller] = useState<Profile | null>(null);
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [purchaseStatus, setPurchaseStatus] = useState<'idle' | 'purchasing' | 'success'>('idle');
-
-  // Instant-delivery (wallet) state
+  // Direct Paystack purchase state
   const [stockCount, setStockCount] = useState<number | null>(null);
   const [buying, setBuying] = useState(false);
   const [boughtCredentials, setBoughtCredentials] = useState('');
   const [buyError, setBuyError] = useState('');
+  const [paymentEmail, setPaymentEmail] = useState('');
+  const [paymentComplete, setPaymentComplete] = useState(false);
 
   useEffect(() => {
     // Get listing details
@@ -53,42 +51,48 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
 
     const savedUser = localStorage.getItem('promonow_current_user');
     if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
+      Promise.resolve(savedUser).then(value => setCurrentUser(JSON.parse(value)));
+    }
+
+    supabase?.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setPaymentEmail(data.user.email);
+    });
+
+    const query = new URLSearchParams(window.location.search);
+    const reference = query.get('reference') || query.get('trxref');
+    if (reference?.startsWith('buy_')) {
+      api.verifyListingPayment(reference)
+        .then(result => {
+          if (result.status === 'success') {
+            setPaymentComplete(true);
+            setBoughtCredentials(result.credentials || '');
+            setStockCount(count => count === null ? null : Math.max(0, count - 1));
+            window.history.replaceState({}, '', `/marketplace/${id}`);
+          } else {
+            setBuyError(`Payment status: ${result.status}`);
+          }
+        })
+        .catch(error => setBuyError(error instanceof Error ? error.message : 'Payment verification failed'))
+        .finally(() => setBuying(false));
     }
   }, [id]);
 
-  const handleBuyNow = async () => {
-    if (!listing || !currentUser) return;
-    setPurchaseStatus('purchasing');
-
-    // Simulate payment process delay
-    setTimeout(async () => {
-      try {
-        await api.createTransaction(listing.id, currentUser.id);
-        setPurchaseStatus('success');
-
-        // Refresh listing status
-        const updated = await api.getListingById(listing.id);
-        if (updated) setListing(updated);
-      } catch (err) {
-        console.error(err);
-        setPurchaseStatus('idle');
-      }
-    }, 2000);
-  };
-
-  const handleInstantBuy = async () => {
+  const handlePaystackPayment = async () => {
     if (!listing) return;
     setBuyError('');
     if (!currentUser) {
       window.location.href = '/login';
       return;
     }
+    if (!paymentEmail.trim()) {
+      setBuyError('Enter the email address where Paystack should send your receipt.');
+      return;
+    }
     setBuying(true);
     try {
-      const res = await api.purchaseFromWallet(currentUser.id, listing.id);
-      setBoughtCredentials(res.credentials);
-      setStockCount(c => (c === null ? null : Math.max(0, c - 1)));
+      const callbackUrl = `${window.location.origin}/marketplace/${listing.id}`;
+      const res = await api.startListingPayment(currentUser.id, listing.id, paymentEmail, callbackUrl);
+      window.location.assign(res.authorization_url);
     } catch (err) {
       setBuyError(err instanceof Error ? err.message : 'Purchase failed');
     } finally {
@@ -119,9 +123,6 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
-
-  const escrowFee = Math.round(listing.price * 0.02 * 100) / 100;
-  const totalDue = listing.price + escrowFee;
 
   return (
     <>
@@ -180,7 +181,7 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
                 <div className="bg-[#f7f9fc] p-4 rounded-xl border border-[#cbc3d9]/40 min-w-[160px] text-right md:text-right">
                   <p className="text-[10px] uppercase font-space font-bold text-[#7a7488] mb-1">Listing Price</p>
                   <p className="font-space font-black text-2xl md:text-3xl text-[#4800b2]">₦{listing.price.toLocaleString()}</p>
-                  <p className="text-[10px] text-[#006f64] font-bold mt-1">✓ Escrow Protected</p>
+                  <p className="text-[10px] text-[#006f64] font-bold mt-1">Pay securely with Paystack</p>
                 </div>
               </div>
 
@@ -295,12 +296,12 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
           {/* Right Purchase Sidebar */}
           <aside className="lg:col-span-4 space-y-6">
 
-            {/* Instant Delivery (wallet) Card — only when stock is loaded */}
+            {/* Direct Paystack purchase */}
             {stockCount !== null && (
               <section className="bg-white border-2 border-[#006a60]/30 p-6 rounded-2xl shadow-xs">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-space font-black text-base text-[#191c1e] flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-[#006a60]" /> Instant Delivery
+                    <Zap className="w-4 h-4 text-[#006a60]" /> Pay directly
                   </h2>
                   <span className={`text-[10px] font-space font-bold px-2.5 py-0.5 rounded-full ${
                     stockCount > 0 ? 'bg-emerald-50 text-[#006f64]' : 'bg-neutral-100 text-neutral-500'
@@ -309,121 +310,60 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
                   </span>
                 </div>
 
-                {boughtCredentials ? (
+                {paymentComplete ? (
                   <div className="space-y-3">
                     <div className="bg-emerald-50 border border-emerald-100 text-[#006f64] text-xs p-3 rounded-xl font-medium flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> Purchased! Your credentials:
+                      <CheckCircle2 className="w-4 h-4" /> Payment confirmed. Your purchase is complete.
                     </div>
-                    <div className="bg-[#f2f4f7] rounded-xl p-3 flex items-start justify-between gap-2">
-                      <code className="text-[11px] text-[#191c1e] break-all font-mono whitespace-pre-wrap">{boughtCredentials}</code>
-                      <button
-                        onClick={() => navigator.clipboard?.writeText(boughtCredentials)}
-                        title="Copy"
-                        className="p-1.5 rounded-lg hover:bg-[#e6e9ee] text-[#494456] shrink-0 cursor-pointer"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-[#7a7488]">Also saved under your profile → My Purchased Accounts.</p>
+                    {boughtCredentials && (
+                      <div className="bg-[#f2f4f7] rounded-xl p-3 flex items-start justify-between gap-2">
+                        <code className="text-[11px] text-[#191c1e] break-all font-mono whitespace-pre-wrap">{boughtCredentials}</code>
+                        <button
+                          onClick={() => navigator.clipboard?.writeText(boughtCredentials)}
+                          title="Copy credentials"
+                          className="p-1.5 rounded-lg hover:bg-[#e6e9ee] text-[#494456] shrink-0 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-[#7a7488]">Purchase details are also saved in your profile.</p>
                   </div>
                 ) : (
                   <>
                     <p className="text-xs text-[#494456] mb-4">
-                      Pay <span className="font-space font-bold text-[#191c1e]">₦{listing.price.toLocaleString()}</span> from your wallet and get the login details immediately.
+                      Pay exactly <span className="font-space font-bold text-[#191c1e]">₦{listing.price.toLocaleString()}</span> through Paystack. No wallet top-up or escrow fee.
                     </p>
                     {buyError && (
                       <div className="bg-red-50 text-red-700 text-xs p-3 rounded-xl font-medium mb-3">
                         ⚠️ {buyError}
-                        {buyError.toLowerCase().includes('balance') && (
-                          <Link href="/wallet" className="block mt-1 font-bold underline">Top up your wallet →</Link>
-                        )}
                       </div>
                     )}
+                    <label htmlFor="payment-email" className="block text-[11px] font-space font-bold text-[#494456] mb-1.5">Paystack receipt email</label>
+                    <input
+                      id="payment-email"
+                      type="email"
+                      value={paymentEmail}
+                      onChange={event => setPaymentEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full mb-3 rounded-xl border border-[#cbc3d9] bg-white px-3.5 py-3 text-sm text-[#191c1e] outline-none focus:border-[#006a60] focus:ring-2 focus:ring-[#006a60]/15"
+                    />
                     <button
-                      onClick={handleInstantBuy}
-                      disabled={buying || stockCount === 0}
+                      onClick={handlePaystackPayment}
+                      disabled={buying || (listing.instant_delivery && stockCount === 0)}
                       className="w-full py-3.5 bg-[#006a60] text-white font-space font-bold text-sm tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {buying ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Opening Paystack...</>
                       ) : (
-                        <><KeyRound className="w-4 h-4" /> Buy Instantly — ₦{listing.price.toLocaleString()}</>
+                        <><KeyRound className="w-4 h-4" /> Pay with Paystack — ₦{listing.price.toLocaleString()}</>
                       )}
                     </button>
-                    <Link href="/wallet" className="block text-center text-[10px] text-[#7a7488] mt-2 hover:text-[#4800b2] font-medium">
-                      Uses your wallet balance • Manage wallet
-                    </Link>
+                    <p className="text-center text-[10px] text-[#7a7488] mt-2 font-medium">Secure checkout and receipt provided by Paystack</p>
                   </>
                 )}
               </section>
             )}
-
-            {/* Purchase Escrow Card */}
-            <section className="bg-[#4800b2] text-white p-8 rounded-2xl shadow-lg border border-[#6200ee] sticky top-24">
-              <h2 className="font-space font-black text-xl mb-6">Purchase Asset</h2>
-              
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center text-xs opacity-90">
-                  <span>Account Price</span>
-                  <span>₦{listing.price.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs opacity-90">
-                  <span>Escrow Fee (2%)</span>
-                  <span>₦{escrowFee.toLocaleString()}</span>
-                </div>
-                <div className="h-[1px] bg-white/20" />
-                <div className="flex justify-between items-center font-space font-black text-lg">
-                  <span>Total Due</span>
-                  <span>₦{totalDue.toLocaleString()}</span>
-                </div>
-              </div>
-
-              {listing.status === 'active' ? (
-                <>
-                  {purchaseStatus === 'idle' && (
-                    <button 
-                      onClick={handleBuyNow}
-                      className="w-full py-4 bg-[#4af8e3] text-[#00201c] font-space font-bold text-sm tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                    >
-                      <ShieldCheck className="w-4 h-4" /> Buy Now via Escrow
-                    </button>
-                  )}
-                  {purchaseStatus === 'purchasing' && (
-                    <button 
-                      disabled
-                      className="w-full py-4 bg-white/20 text-white font-space font-bold text-sm tracking-wider rounded-xl flex items-center justify-center gap-2"
-                    >
-                      <Loader2 className="w-4 h-4 animate-spin" /> Securing Escrow...
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button 
-                  disabled
-                  className="w-full py-4 bg-neutral-700 text-neutral-400 font-space font-bold text-sm tracking-wider rounded-xl flex items-center justify-center gap-2"
-                >
-                  SOLD / DEPOSIT HELD
-                </button>
-              )}
-
-              <button className="w-full py-4 mt-3 bg-transparent border border-white/20 text-white font-space font-bold text-xs tracking-wider rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer">
-                <MessageSquare className="w-4 h-4" /> Negotiate Price
-              </button>
-
-              {purchaseStatus === 'success' && (
-                <div className="mt-6 bg-emerald-950/40 border border-[#4af8e3] p-4 rounded-xl text-center text-[#4af8e3] font-space text-xs">
-                  <p className="font-bold mb-1">🎉 Escrow Lock Initiated!</p>
-                  <p className="opacity-90">Total funds of ₦{totalDue.toLocaleString()} locked. Check your email or simulated console to verify transfer.</p>
-                </div>
-              )}
-
-              <div className="mt-8 flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/10">
-                <ShieldCheck className="w-8 h-8 text-[#4af8e3] shrink-0" />
-                <p className="text-[10px] leading-tight text-[#cbc3d9]">
-                  Payment held in secure PromoNow escrow until transfer is verified by the buyer.
-                </p>
-              </div>
-            </section>
 
             {/* Seller Reputation Info */}
             {seller && (
