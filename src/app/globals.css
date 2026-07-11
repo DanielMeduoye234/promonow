@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4800b2;
+  --color-primary-container: #6200ee;
+  --color-secondary: #006a60;
+  --color-secondary-container: #4af8e3;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-background-custom: #f7f9fc;
+  --color-surface-custom: #ffffff;
+  --color-on-background-custom: #191c1e;
+  --color-on-surface-custom: #191c1e;
+  --color-outline-custom: #7a7488;
+  --color-outline-variant-custom: #cbc3d9;
+  --color-surface-variant-custom: #e0e3e6;
+  --color-on-surface-variant-custom: #494456;
+  --color-success-green: #006f64;
+  --color-pure-white: #ffffff;
+  --color-surface-gray: #f2f4f7;
+  --color-surface-container-low: #f2f4f7;
+
+  --font-space: var(--font-space), sans-serif;
+  --font-inter: var(--font-inter), sans-serif;
+}
+
+body {
+  font-family: var(--font-inter);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.active-nav {
+  color: #4800b2;
+  border-bottom: 2px solid #4800b2;
+  font-weight: 700;
+  padding-bottom: 0.25rem;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(72, 0, 178, 0.1);
+}
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: 0px 12px 24px rgba(72, 0, 178, 0.1);
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+.animate-bounce-slow {
+  animation: bounce-slow 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
