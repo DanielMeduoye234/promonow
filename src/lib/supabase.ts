@@ -70,6 +70,29 @@ export interface GrowthRequest {
   created_at: string;
 }
 
+export interface WalletTransaction {
+  id: string;
+  user_id: string;
+  type: 'topup' | 'purchase' | 'refund';
+  amount: number;
+  reference: string;
+  status: 'pending' | 'success' | 'failed';
+  description: string;
+  created_at: string;
+}
+
+export interface WalletSnapshot {
+  balance: number;
+  transactions: WalletTransaction[];
+}
+
+export interface Deliverable {
+  id: string;
+  credentials: string;
+  sold_at: string;
+  listing: { handle: string; platform: string; category: string } | null;
+}
+
 // Growth promotion pricing: NGN 10 per follower, NGN 10,000 minimum.
 export const GROWTH_PRICE_PER_FOLLOWER = 10;
 export const GROWTH_MIN_PRICE = 10000;
@@ -635,5 +658,38 @@ export const api = {
       return requests[idx];
     }
     throw new Error('Growth request not found');
-  }
+  },
+
+  // --- Wallet & payments (require Supabase + Paystack; no local fallback) ---
+  getWallet: (userId: string) =>
+    fetchApi<WalletSnapshot>(`/api/wallet?user_id=${encodeURIComponent(userId)}`),
+
+  startTopup: (userId: string, email: string, amount: number, callbackUrl: string) =>
+    fetchApi<{ authorization_url: string; reference: string }>('/api/wallet/topup', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, email, amount, callback_url: callbackUrl })
+    }),
+
+  verifyTopup: (reference: string) =>
+    fetchApi<{ status: string; balance?: number }>(
+      `/api/wallet/verify?reference=${encodeURIComponent(reference)}`
+    ),
+
+  purchaseFromWallet: (userId: string, listingId: string) =>
+    fetchApi<{ credentials: string; price: number; new_balance: number }>('/api/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, listing_id: listingId })
+    }),
+
+  getDeliverables: (userId: string) =>
+    fetchApi<Deliverable[]>(`/api/deliverables?user_id=${encodeURIComponent(userId)}`),
+
+  getStockCount: (listingId: string) =>
+    fetchApi<{ available: number }>(`/api/stock?listing_id=${encodeURIComponent(listingId)}`),
+
+  addStock: (listingId: string, credentials: string[]) =>
+    fetchApi<{ added: number }>('/api/stock', {
+      method: 'POST',
+      body: JSON.stringify({ listing_id: listingId, credentials })
+    })
 };

@@ -4,19 +4,21 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AccountCard from '@/components/AccountCard';
-import { db, api, Listing, Profile, Transaction, PromotionRequest } from '@/lib/supabase';
-import { 
-  User, 
-  Award, 
-  ShoppingBag, 
-  Sparkles, 
-  CheckCircle, 
-  Clock, 
+import { db, api, Listing, Profile, Transaction, PromotionRequest, Deliverable } from '@/lib/supabase';
+import {
+  User,
+  Award,
+  ShoppingBag,
+  Sparkles,
+  CheckCircle,
+  Clock,
   ArrowRight,
   TrendingUp,
   FolderHeart,
   Plus,
-  X
+  X,
+  KeyRound,
+  Copy
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -25,6 +27,7 @@ export default function UserProfile() {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [myPurchases, setMyPurchases] = useState<Transaction[]>([]);
   const [promoRequests, setPromoRequests] = useState<PromotionRequest[]>([]);
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   
   // Promotion form modal states
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -45,6 +48,13 @@ export default function UserProfile() {
 
       const allPromos = await api.getPromotionRequests();
       setPromoRequests(allPromos);
+
+      try {
+        const delivered = await api.getDeliverables(userId);
+        setDeliverables(delivered);
+      } catch {
+        setDeliverables([]);
+      }
     } catch (err) {
       console.error("Error loading user profile data:", err);
     }
@@ -149,6 +159,42 @@ export default function UserProfile() {
             </div>
           </div>
         </section>
+
+        {/* Purchased Deliverables — instant-delivery credentials */}
+        {deliverables.length > 0 && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="font-space font-black text-xl text-[#191c1e] flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-[#006a60]" /> My Purchased Accounts
+              </h2>
+              <p className="text-xs text-[#7a7488] mt-0.5">Credentials are delivered instantly after purchase. Keep them safe.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {deliverables.map(d => (
+                <div key={d.id} className="bg-white border border-[#006a60]/30 rounded-2xl p-5 space-y-3 shadow-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-space font-bold text-xs uppercase tracking-wider text-[#006a60] bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                      {d.listing?.platform || 'account'}
+                    </span>
+                    <span className="text-[10px] text-[#7a7488]">{new Date(d.sold_at).toLocaleDateString()}</span>
+                  </div>
+                  <h3 className="font-space font-black text-base text-[#191c1e]">{d.listing?.handle || 'Purchased account'}</h3>
+                  <div className="bg-[#f2f4f7] rounded-xl p-3 flex items-start justify-between gap-2">
+                    <code className="text-[11px] text-[#191c1e] break-all font-mono whitespace-pre-wrap">{d.credentials}</code>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(d.credentials)}
+                      title="Copy credentials"
+                      className="p-1.5 rounded-lg hover:bg-[#e6e9ee] text-[#494456] shrink-0 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Promotion Action Hub */}
         <section className="space-y-4">

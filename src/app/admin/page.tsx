@@ -16,7 +16,8 @@ import {
   TrendingUp,
   RefreshCcw,
   PlusCircle,
-  Rocket
+  Rocket,
+  KeyRound
 } from 'lucide-react';
 
 export default function AdminConsole() {
@@ -29,6 +30,12 @@ export default function AdminConsole() {
   
   // Loading & Action feedback state
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Stock (credential inventory) modal state
+  const [stockListing, setStockListing] = useState<Listing | null>(null);
+  const [stockText, setStockText] = useState('');
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockMsg, setStockMsg] = useState('');
 
   // New listing form state
   const [showListForm, setShowListForm] = useState(false);
@@ -131,6 +138,28 @@ export default function AdminConsole() {
       console.error(err);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleAddStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stockListing) return;
+    const lines = stockText.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      setStockMsg('Enter at least one credential line.');
+      return;
+    }
+    setStockLoading(true);
+    setStockMsg('');
+    try {
+      const res = await api.addStock(stockListing.id, lines);
+      setStockMsg(`✅ Added ${res.added} unit(s) to stock.`);
+      setStockText('');
+      setTimeout(() => { setStockListing(null); setStockMsg(''); }, 1500);
+    } catch (err) {
+      setStockMsg(err instanceof Error ? err.message : 'Failed to add stock');
+    } finally {
+      setStockLoading(false);
     }
   };
 
@@ -586,12 +615,18 @@ export default function AdminConsole() {
                             </button>
                           </>
                         )}
-                        <button 
+                        <button
                           onClick={() => handleTogglePromotion(l.id)}
                           disabled={actionLoading}
                           className="bg-purple-50 hover:bg-purple-100 text-[#4800b2] px-3 py-1.5 rounded-lg font-space font-bold text-[10px] cursor-pointer"
                         >
                           {l.is_promoted ? 'Demote' : 'Promote'}
+                        </button>
+                        <button
+                          onClick={() => { setStockListing(l); setStockText(''); setStockMsg(''); }}
+                          className="bg-emerald-50 hover:bg-emerald-100 text-[#006f64] px-3 py-1.5 rounded-lg font-space font-bold text-[10px] cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <KeyRound className="w-3 h-3" /> Stock
                         </button>
                       </td>
                     </tr>
@@ -809,6 +844,67 @@ export default function AdminConsole() {
         </section>
 
       </main>
+
+      {/* Stock (credential inventory) Modal */}
+      {stockListing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white border border-[#cbc3d9]/40 rounded-3xl p-6 max-w-lg w-full shadow-xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-space font-black text-xl text-[#191c1e] flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-[#006a60]" /> Load Stock
+                </h3>
+                <p className="text-xs text-[#7a7488] mt-0.5">
+                  Add credentials for <strong className="text-[#191c1e]">{stockListing.handle}</strong>. One account per line —
+                  each line becomes one instantly-deliverable unit.
+                </p>
+              </div>
+              <button
+                onClick={() => setStockListing(null)}
+                className="p-1 hover:bg-[#f2f4f7] rounded-lg text-neutral-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {stockMsg && (
+              <div className={`text-xs p-3.5 rounded-xl font-medium border ${
+                stockMsg.startsWith('✅') ? 'bg-emerald-50 text-[#006f64] border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'
+              }`}>
+                {stockMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleAddStock} className="space-y-4">
+              <textarea
+                value={stockText}
+                onChange={(e) => setStockText(e.target.value)}
+                placeholder={"username1:password1:2fa\nusername2:password2:2fa"}
+                className="w-full bg-[#f2f4f7] border-none rounded-xl p-3.5 h-40 font-mono text-xs focus:ring-2 focus:ring-[#006a60] resize-none"
+              />
+              <p className="text-[10px] text-[#7a7488]">
+                Credentials are stored server-side and revealed only to the buyer after purchase. They are never exposed to public reads.
+              </p>
+              <div className="flex justify-end gap-3 pt-2 border-t border-[#cbc3d9]/20">
+                <button
+                  type="button"
+                  onClick={() => setStockListing(null)}
+                  className="px-5 py-2.5 rounded-xl border border-[#cbc3d9]/60 font-space font-bold text-xs hover:bg-neutral-50 cursor-pointer text-[#494456]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={stockLoading}
+                  className="px-6 py-2.5 bg-[#006a60] text-white rounded-xl font-space font-bold text-xs hover:opacity-90 cursor-pointer shadow-xs"
+                >
+                  {stockLoading ? 'Adding...' : 'Add to Stock'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </>

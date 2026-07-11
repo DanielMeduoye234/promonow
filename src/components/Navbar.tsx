@@ -12,7 +12,8 @@ import {
   LogIn,
   Menu,
   X,
-  Bell
+  Bell,
+  Wallet
 } from 'lucide-react';
 import { api, Profile } from '@/lib/supabase';
 
@@ -208,6 +209,14 @@ export default function Navbar() {
 
                   <div className="p-1 mt-1 space-y-1">
                     <Link
+                      href="/wallet"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full text-left font-space text-xs py-2 px-3 hover:bg-[#f7f9fc] rounded-lg flex items-center gap-2 cursor-pointer text-[#494456]"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      My Wallet
+                    </Link>
+                    <Link
                       href="/profile"
                       onClick={() => setShowUserMenu(false)}
                       className="w-full text-left font-space text-xs py-2 px-3 hover:bg-[#f7f9fc] rounded-lg flex items-center gap-2 cursor-pointer text-[#494456]"
@@ -298,6 +307,15 @@ export default function Navbar() {
             }`}
           >
             Promote
+          </Link>
+          <Link
+            href="/wallet"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`font-space font-bold text-sm py-2 tracking-wide transition-colors ${
+              pathname === '/wallet' ? 'text-[#4800b2]' : 'text-[#494456] hover:text-[#4800b2]'
+            }`}
+          >
+            My Wallet
           </Link>
           <Link
             href="/pricing"

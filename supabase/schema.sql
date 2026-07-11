@@ -259,3 +259,158 @@ create policy "Public read growth requests"
   on public.growth_requests for select
   to anon, authenticated
   using (true);
+
+-- ============================================================
+-- 7. WALLET, PAYMENTS & CREDENTIAL INVENTORY (Aklogz-style shop)
+-- Appended section — safe to re-run.
+-- ------------------------------------------------------------
+-- Design notes:
+--  * wallets / wallet_transactions / listing_stock have RLS ENABLED
+--    with NO public policy, so anon/authenticated clients CANNOT read
+--    them directly. Only the service-role key (used by our API routes)
+--    bypasses RLS. This is critical: listing_stock holds plaintext
+--    account credentials that must never be exposed to the browser.
+--  * All money movement happens inside SECURITY DEFINER functions so
+--    balance checks, stock assignment and ledger writes are atomic.
+-- ============================================================
+
+-- WALLETS: one balance row per profile
+create table if not exists public.wallets (
+  user_id    uuid primary key references public.profiles(id) on delete cascade,
+  balance    numeric(14,2) not null default 0 check (balance >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- WALLET LEDGER: every top-up, purchase and refund
+create table if not exists public.wallet_transactions (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  type        text not null check (type in ('topup','purchase','refund')),
+  amount      numeric(14,2) not null check (amount >= 0),
+  reference   text not null unique,
+  status      text not null default 'pending'
+                check (status in ('pending','success','failed')),
+  description text not null default '',
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_wallet_tx_user    on public.wallet_transactions (user_id);
+create index if not exists idx_wallet_tx_created on public.wallet_transactions (created_at desc);
+
+-- LISTING STOCK: pre-loaded credentials for instant delivery.
+-- A listing can hold many stock units; each is sold to exactly one buyer.
+create table if not exists public.listing_stock (
+  id          uuid primary key default gen_random_uuid(),
+  listing_id  uuid not null references public.listings(id) on delete cascade,
+  credentials text not null,
+  status      text not null default 'available'
+                check (status in ('available','sold')),
+  buyer_id    uuid references public.profiles(id) on delete set null,
+  sold_at     timestamptz,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_listing_stock_avail on public.listing_stock (listing_id, status);
+
+-- Lock down: RLS on, no policies => no direct client access at all.
+alter table public.wallets              enable row level security;
+alter table public.wallet_transactions  enable row level security;
+alter table public.listing_stock        enable row level security;
+
+-- ------------------------------------------------------------
+-- credit_wallet_topup: idempotently mark a pending top-up successful
+-- and add the funds. Safe to call from both the verify endpoint and
+-- the Paystack webhook — the second call is a no-op.
+-- ------------------------------------------------------------
+create or replace function public.credit_wallet_topup(p_reference text)
+returns numeric
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_tx      wallet_transactions%rowtype;
+  v_balance numeric(14,2);
+begin
+  select * into v_tx from wallet_transactions
+    where reference = p_reference and type = 'topup'
+    for update;
+
+  if not found then
+    raise exception 'TXN_NOT_FOUND';
+  end if;
+
+  -- Already credited: return current balance unchanged (idempotent).
+  if v_tx.status = 'success' then
+    select balance into v_balance from wallets where user_id = v_tx.user_id;
+    return coalesce(v_balance, 0);
+  end if;
+
+  insert into wallets (user_id, balance)
+    values (v_tx.user_id, v_tx.amount)
+    on conflict (user_id)
+    do update set balance = wallets.balance + v_tx.amount, updated_at = now()
+    returning balance into v_balance;
+
+  update wallet_transactions set status = 'success' where id = v_tx.id;
+
+  return v_balance;
+end;
+$$;
+
+-- ------------------------------------------------------------
+-- purchase_listing_with_wallet: atomically charge the wallet and hand
+-- over one available stock unit. Raises INSUFFICIENT_FUNDS / OUT_OF_STOCK
+-- / LISTING_NOT_FOUND so the API can return a clean error.
+-- ------------------------------------------------------------
+create or replace function public.purchase_listing_with_wallet(
+  p_user_id uuid,
+  p_listing_id uuid
+)
+returns table (stock_id uuid, credentials text, price numeric, new_balance numeric)
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_price   numeric(14,2);
+  v_handle  text;
+  v_balance numeric(14,2);
+  v_stock   listing_stock%rowtype;
+begin
+  select price, handle into v_price, v_handle from listings where id = p_listing_id;
+  if v_price is null then
+    raise exception 'LISTING_NOT_FOUND';
+  end if;
+
+  -- Lock the wallet row so the balance check and debit are atomic.
+  select balance into v_balance from wallets where user_id = p_user_id for update;
+  if v_balance is null or v_balance < v_price then
+    raise exception 'INSUFFICIENT_FUNDS';
+  end if;
+
+  -- Grab exactly one available unit; SKIP LOCKED avoids two buyers racing
+  -- onto the same row.
+  select * into v_stock from listing_stock
+    where listing_id = p_listing_id and status = 'available'
+    limit 1
+    for update skip locked;
+  if not found then
+    raise exception 'OUT_OF_STOCK';
+  end if;
+
+  update listing_stock
+    set status = 'sold', buyer_id = p_user_id, sold_at = now()
+    where id = v_stock.id;
+
+  update wallets
+    set balance = balance - v_price, updated_at = now()
+    where user_id = p_user_id
+    returning balance into v_balance;
+
+  insert into wallet_transactions (user_id, type, amount, reference, status, description)
+    values (p_user_id, 'purchase', v_price, 'pur_' || gen_random_uuid()::text, 'success',
+            'Purchase: ' || coalesce(v_handle, p_listing_id::text));
+
+  return query select v_stock.id, v_stock.credentials, v_price, v_balance;
+end;
+$$;

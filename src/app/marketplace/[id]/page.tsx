@@ -4,20 +4,19 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { api, Listing, Profile, Transaction } from '@/lib/supabase';
-import { 
-  CheckCircle2, 
-  ChevronRight, 
-  Download, 
-  Heart, 
-  MessageCircle, 
-  ShieldCheck, 
-  User, 
+import { api, Listing, Profile } from '@/lib/supabase';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Download,
+  ShieldCheck,
+  User,
   MessageSquare,
-  Globe,
   Loader2,
   TrendingUp,
-  Sparkles
+  Zap,
+  KeyRound,
+  Copy
 } from 'lucide-react';
 
 export default function ListingDetails({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +28,12 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [purchaseStatus, setPurchaseStatus] = useState<'idle' | 'purchasing' | 'success'>('idle');
 
+  // Instant-delivery (wallet) state
+  const [stockCount, setStockCount] = useState<number | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [boughtCredentials, setBoughtCredentials] = useState('');
+  const [buyError, setBuyError] = useState('');
+
   useEffect(() => {
     // Get listing details
     api.getListingById(id).then(data => {
@@ -38,11 +43,14 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
         api.getProfileById(data.seller_id).then(prof => {
           if (prof) setSeller(prof);
         });
+        // How many pre-loaded units are available for instant delivery?
+        api.getStockCount(data.id)
+          .then(res => setStockCount(res.available))
+          .catch(() => setStockCount(0));
       }
       setLoading(false);
     });
 
-    // Get current logged-in user simulation
     const savedUser = localStorage.getItem('promonow_current_user');
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
@@ -52,13 +60,13 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
   const handleBuyNow = async () => {
     if (!listing || !currentUser) return;
     setPurchaseStatus('purchasing');
-    
+
     // Simulate payment process delay
     setTimeout(async () => {
       try {
         await api.createTransaction(listing.id, currentUser.id);
         setPurchaseStatus('success');
-        
+
         // Refresh listing status
         const updated = await api.getListingById(listing.id);
         if (updated) setListing(updated);
@@ -67,6 +75,25 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
         setPurchaseStatus('idle');
       }
     }, 2000);
+  };
+
+  const handleInstantBuy = async () => {
+    if (!listing) return;
+    setBuyError('');
+    if (!currentUser) {
+      window.location.href = '/login';
+      return;
+    }
+    setBuying(true);
+    try {
+      const res = await api.purchaseFromWallet(currentUser.id, listing.id);
+      setBoughtCredentials(res.credentials);
+      setStockCount(c => (c === null ? null : Math.max(0, c - 1)));
+    } catch (err) {
+      setBuyError(err instanceof Error ? err.message : 'Purchase failed');
+    } finally {
+      setBuying(false);
+    }
   };
 
   if (loading) {
@@ -267,7 +294,70 @@ export default function ListingDetails({ params }: { params: Promise<{ id: strin
 
           {/* Right Purchase Sidebar */}
           <aside className="lg:col-span-4 space-y-6">
-            
+
+            {/* Instant Delivery (wallet) Card — only when stock is loaded */}
+            {stockCount !== null && (
+              <section className="bg-white border-2 border-[#006a60]/30 p-6 rounded-2xl shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-space font-black text-base text-[#191c1e] flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-[#006a60]" /> Instant Delivery
+                  </h2>
+                  <span className={`text-[10px] font-space font-bold px-2.5 py-0.5 rounded-full ${
+                    stockCount > 0 ? 'bg-emerald-50 text-[#006f64]' : 'bg-neutral-100 text-neutral-500'
+                  }`}>
+                    {stockCount > 0 ? `${stockCount} in stock` : 'Out of stock'}
+                  </span>
+                </div>
+
+                {boughtCredentials ? (
+                  <div className="space-y-3">
+                    <div className="bg-emerald-50 border border-emerald-100 text-[#006f64] text-xs p-3 rounded-xl font-medium flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> Purchased! Your credentials:
+                    </div>
+                    <div className="bg-[#f2f4f7] rounded-xl p-3 flex items-start justify-between gap-2">
+                      <code className="text-[11px] text-[#191c1e] break-all font-mono whitespace-pre-wrap">{boughtCredentials}</code>
+                      <button
+                        onClick={() => navigator.clipboard?.writeText(boughtCredentials)}
+                        title="Copy"
+                        className="p-1.5 rounded-lg hover:bg-[#e6e9ee] text-[#494456] shrink-0 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-[#7a7488]">Also saved under your profile → My Purchased Accounts.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-[#494456] mb-4">
+                      Pay <span className="font-space font-bold text-[#191c1e]">₦{listing.price.toLocaleString()}</span> from your wallet and get the login details immediately.
+                    </p>
+                    {buyError && (
+                      <div className="bg-red-50 text-red-700 text-xs p-3 rounded-xl font-medium mb-3">
+                        ⚠️ {buyError}
+                        {buyError.toLowerCase().includes('balance') && (
+                          <Link href="/wallet" className="block mt-1 font-bold underline">Top up your wallet →</Link>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleInstantBuy}
+                      disabled={buying || stockCount === 0}
+                      className="w-full py-3.5 bg-[#006a60] text-white font-space font-bold text-sm tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {buying ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                      ) : (
+                        <><KeyRound className="w-4 h-4" /> Buy Instantly — ₦{listing.price.toLocaleString()}</>
+                      )}
+                    </button>
+                    <Link href="/wallet" className="block text-center text-[10px] text-[#7a7488] mt-2 hover:text-[#4800b2] font-medium">
+                      Uses your wallet balance • Manage wallet
+                    </Link>
+                  </>
+                )}
+              </section>
+            )}
+
             {/* Purchase Escrow Card */}
             <section className="bg-[#4800b2] text-white p-8 rounded-2xl shadow-lg border border-[#6200ee] sticky top-24">
               <h2 className="font-space font-black text-xl mb-6">Purchase Asset</h2>
