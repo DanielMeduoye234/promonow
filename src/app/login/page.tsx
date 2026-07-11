@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { db, api, Profile, supabase } from '@/lib/supabase';
-import { ShieldCheck, LogIn, UserPlus, Sparkles, Loader2 } from 'lucide-react';
+import { LogIn, UserPlus, Sparkles, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function Login() {
   const [signUpUsername, setSignUpUsername] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpRole, setSignUpRole] = useState<'user' | 'admin'>('user');
 
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -61,25 +60,21 @@ export default function Login() {
 
           if (!profile) {
             const username = signInEmail.split('@')[0];
-            const isAdmin = username.toLowerCase().includes('admin') || signInEmail.toLowerCase().startsWith('admin');
             const newMockProfile: Profile = {
               id: data.user.id,
               username: username,
               reputation: 100.0,
               sales_count: 0,
-              is_admin: isAdmin,
+              is_admin: false,
               created_at: new Date().toISOString()
             };
 
             await api.createProfile(newMockProfile);
             activeProfile = newMockProfile;
           } else {
-            // Even if profile exists, double-check if it should be admin
-            const updatedProfile = { ...profile } as Profile;
-            if (profile.username.toLowerCase().includes('admin')) {
-              updatedProfile.is_admin = true;
-            }
-            activeProfile = updatedProfile;
+            // Admin status comes from the stored profile only; it is never
+            // derived from the email or username at sign-in.
+            activeProfile = profile;
           }
 
           localStorage.setItem('promonow_current_user', JSON.stringify(activeProfile));
@@ -98,11 +93,8 @@ export default function Login() {
       const profiles = db.getProfiles();
       const loginName = signInEmail.split('@')[0].toLowerCase();
       
-      let matched = profiles.find(p => 
-        p.username.toLowerCase() === loginName || 
-        (loginName.includes('admin') && p.is_admin)
-      );
-      
+      let matched = profiles.find(p => p.username.toLowerCase() === loginName);
+
       if (!matched) {
         matched = profiles[0];
       }
@@ -146,7 +138,7 @@ export default function Login() {
             username: signUpUsername,
             reputation: 100.0,
             sales_count: 0,
-            is_admin: signUpRole === 'admin',
+            is_admin: false,
             created_at: new Date().toISOString()
           };
 
@@ -183,7 +175,7 @@ export default function Login() {
         username: signUpUsername,
         reputation: 100.0,
         sales_count: 0,
-        is_admin: signUpRole === 'admin',
+        is_admin: false,
         created_at: new Date().toISOString()
       };
 
@@ -214,7 +206,7 @@ export default function Login() {
             <p className="text-xs text-[#7a7488]">
               {mode === 'signin' 
                 ? 'Sign in to access your listings and buy digital assets.' 
-                : 'Create a simulated profile to buy, sell, or moderate assets.'}
+                : 'Create a profile to buy and sell digital assets.'}
             </p>
           </div>
 
@@ -305,33 +297,7 @@ export default function Login() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block font-space font-bold text-[10px] text-[#7a7488] uppercase tracking-wider">Simulated Account Role</label>
-                <div className="flex gap-4 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="signup-role"
-                      checked={signUpRole === 'user'}
-                      onChange={() => setSignUpRole('user')}
-                      className="text-[#4800b2] focus:ring-[#4800b2]"
-                    />
-                    <span className="font-space text-xs text-[#494456] font-medium">Standard User (Buyer/Seller)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="signup-role"
-                      checked={signUpRole === 'admin'}
-                      onChange={() => setSignUpRole('admin')}
-                      className="text-[#4800b2] focus:ring-[#4800b2]"
-                    />
-                    <span className="font-space text-xs text-[#494456] font-medium">Administrator</span>
-                  </label>
-                </div>
-              </div>
-
-              <button 
+              <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-3.5 bg-[#006a60] text-white font-space font-bold text-xs tracking-wider rounded-xl hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm mt-6"

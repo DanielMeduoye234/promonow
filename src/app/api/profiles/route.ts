@@ -42,7 +42,9 @@ export async function POST(request: Request) {
       username: body.username,
       reputation: body.reputation ?? 100.0,
       sales_count: body.sales_count ?? 0,
-      is_admin: !!body.is_admin
+      // Admin accounts are provisioned via the database seed only —
+      // never from a client-supplied flag.
+      is_admin: false
     }])
     .select()
     .single();

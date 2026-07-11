@@ -39,8 +39,8 @@ export default function Pricing() {
         'Reduced escrow fee (1.5%)',
         'Direct chat support'
       ],
-      cta: 'Get Premium Audit',
-      ctaLink: '/sell',
+      cta: 'Sign Up for Promotion',
+      ctaLink: '/profile',
       accent: true,
       badge: 'Most Popular'
     },
@@ -58,8 +58,8 @@ export default function Pricing() {
         'API access for bulk account syncing',
         '24/7 Phone & Zoom support'
       ],
-      cta: 'Contact Elite Desk',
-      ctaLink: '#',
+      cta: 'Sign Up for Elite Promotion',
+      ctaLink: '/profile',
       accent: false
     }
   ];

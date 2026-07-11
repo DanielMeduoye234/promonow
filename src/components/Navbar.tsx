@@ -109,16 +109,24 @@ export default function Navbar() {
             >
               List Account
             </Link>
-            <Link 
-              href="/services" 
+            <Link
+              href="/services"
               className={`font-space font-bold text-sm tracking-wide transition-colors ${
                 pathname === '/services' ? 'text-[#4800b2] border-b-2 border-[#4800b2] pb-1' : 'text-[#494456] hover:text-[#4800b2]'
               }`}
             >
               Services
             </Link>
-            <Link 
-              href="/pricing" 
+            <Link
+              href="/stats"
+              className={`font-space font-bold text-sm tracking-wide transition-colors ${
+                pathname === '/stats' ? 'text-[#4800b2] border-b-2 border-[#4800b2] pb-1' : 'text-[#494456] hover:text-[#4800b2]'
+              }`}
+            >
+              Followers &amp; Likes
+            </Link>
+            <Link
+              href="/pricing"
               className={`font-space font-bold text-sm tracking-wide transition-colors ${
                 pathname === '/pricing' ? 'text-[#4800b2] border-b-2 border-[#4800b2] pb-1' : 'text-[#494456] hover:text-[#4800b2]'
               }`}
@@ -288,8 +296,17 @@ export default function Navbar() {
           >
             Services
           </Link>
-          <Link 
-            href="/pricing" 
+          <Link
+            href="/stats"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`font-space font-bold text-sm py-2 tracking-wide transition-colors ${
+              pathname === '/stats' ? 'text-[#4800b2]' : 'text-[#494456] hover:text-[#4800b2]'
+            }`}
+          >
+            Followers &amp; Likes
+          </Link>
+          <Link
+            href="/pricing"
             onClick={() => setMobileMenuOpen(false)}
             className={`font-space font-bold text-sm py-2 tracking-wide transition-colors ${
               pathname === '/pricing' ? 'text-[#4800b2]' : 'text-[#494456] hover:text-[#4800b2]'

@@ -16,7 +16,6 @@ export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 export interface SellerProfileInput {
   id?: string;
   username?: string;
-  is_admin?: boolean;
 }
 
 // Resolves the seller to a real profile row so FK constraints hold.
@@ -42,7 +41,9 @@ export async function resolveSellerProfile(seller: SellerProfileInput | undefine
         username: seller.username || `user_${seller.id.slice(0, 8)}`,
         reputation: 100.0,
         sales_count: 0,
-        is_admin: !!seller.is_admin
+        // Auto-provisioned profiles are never admins; admin accounts
+        // come from the database seed only.
+        is_admin: false
       }])
       .select()
       .single();
